@@ -11,38 +11,6 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
-
-  // Fetch drivers independently for driver portal (no user authentication required)
-  useEffect(() => {
-    const fetchDriversForPortal = async () => {
-      try {
-        console.log('Fetching drivers for driver portal...');
-        
-        // Get all drivers regardless of user_id for driver portal access
-        const { data, error } = await supabase
-          .from('drivers')
-          .select('*'); // Get all drivers since active column doesn't exist yet
-
-        if (error) {
-          console.error('Error fetching drivers for portal:', error);
-          return;
-        }
-
-        const driversWithPin = (data || []).map(driver => ({
-          ...driver,
-          pin: driver.pin || '1234'
-        }));
-
-        console.log('Fetched drivers for portal:', driversWithPin);
-        setAvailableDrivers(driversWithPin);
-      } catch (err) {
-        console.error('Error in fetchDriversForPortal:', err);
-      }
-    };
-
-    fetchDriversForPortal();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,39 +24,53 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
     setError('');
 
     try {
-      console.log('Attempting driver login:', { driverId, pin, driversCount: availableDrivers.length });
-      console.log('Available drivers:', availableDrivers.map(d => ({ id: d.id, name: d.name, license: d.license, pin: d.pin })));
+      console.log('Attempting driver login with credentials verification...');
       
-      // Check if no drivers are loaded
-      if (availableDrivers.length === 0) {
-        setError('No drivers found in the system. Please ensure drivers are added in the admin panel first.');
-        return;
-      }
-      
-      // Find the driver by license number (Driver ID) - case insensitive
-      const driver = availableDrivers.find(d => {
-        const driverLicense = d.license?.toLowerCase().trim();
-        const inputId = driverId.toLowerCase().trim();
-        const driverPin = d.pin || '1234';
-        
-        console.log('Checking driver:', { 
-          driverLicense, 
-          inputId, 
-          driverPin, 
-          inputPin: pin,
-          licenseMatch: driverLicense === inputId,
-          pinMatch: driverPin === pin
-        });
-        
-        return driverLicense === inputId && driverPin === pin;
+      // Use the server-side authentication function
+      const { data, error } = await supabase.rpc('verify_driver_credentials', {
+        driver_id: driverId.trim(),
+        driver_pin: pin.trim()
       });
 
-      if (driver) {
-        console.log('Driver login successful:', driver);
-        onDriverLogin(driverId, driver.name, driver.id);
+      if (error) {
+        console.error('Driver authentication error:', error);
+        
+        // If the RPC function fails due to missing active column, fall back to direct query
+        if (error.message.includes('active') || error.message.includes('column')) {
+          console.log('Falling back to direct driver query...');
+          
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('drivers')
+            .select('id, name, phone, license, pin')
+            .eq('license', driverId.trim())
+            .single();
+
+          if (fallbackError || !fallbackData) {
+            setError('Invalid Driver ID or PIN. Please check your credentials.');
+            return;
+          }
+
+          const storedPin = fallbackData.pin || '1234';
+          if (storedPin === pin.trim()) {
+            console.log('Fallback driver login successful:', fallbackData);
+            onDriverLogin(driverId, fallbackData.name, fallbackData.id);
+            return;
+          } else {
+            setError('Invalid Driver ID or PIN. Please check your credentials.');
+            return;
+          }
+        } else {
+          setError('Authentication failed. Please try again.');
+          return;
+        }
+      }
+
+      if (data && data.length > 0) {
+        const authenticatedDriver = data[0];
+        console.log('Driver login successful:', authenticatedDriver);
+        onDriverLogin(driverId, authenticatedDriver.name, authenticatedDriver.id);
       } else {
-        console.log('Driver login failed - no matching driver found');
-        setError('Invalid Driver ID or PIN. Please check your credentials and try again.');
+        setError('Invalid Driver ID or PIN. Please check your credentials.');
       }
     } catch (err) {
       console.error('Driver login error:', err);
@@ -176,9 +158,6 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
           <div className="mt-6 pt-6 border-t border-gray-200 text-center">
             <p className="text-sm text-gray-500">
               Having trouble? Contact your dispatcher
-            </p>
-            <p className="text-xs text-gray-400 mt-2">
-              Demo: Use any license number from the driver list with PIN: 1234
             </p>
           </div>
         </div>
