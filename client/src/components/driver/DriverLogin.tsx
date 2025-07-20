@@ -31,9 +31,15 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
         .from('drivers')
         .select('id, name, phone, license')
         .eq('license', driverId.trim())
-        .single();
+        .maybeSingle();
 
-      if (driverError || !driverData) {
+      if (driverError) {
+        console.error('Database error:', driverError);
+        setError('Database error occurred. Please try again.');
+        return;
+      }
+
+      if (!driverData) {
         console.error('Driver not found:', driverError);
         setError('Invalid Driver ID. Please check your credentials.');
         return;
