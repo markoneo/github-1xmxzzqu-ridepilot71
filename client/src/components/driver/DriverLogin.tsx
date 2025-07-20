@@ -22,8 +22,7 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
         // Get all drivers regardless of user_id for driver portal access
         const { data, error } = await supabase
           .from('drivers')
-          .select('*')
-          .eq('active', true); // Only get active drivers
+          .select('*'); // Get all drivers since active column doesn't exist yet
 
         if (error) {
           console.error('Error fetching drivers for portal:', error);
