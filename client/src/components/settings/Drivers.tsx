@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Edit2, Key, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Edit2, Key, Eye, EyeOff, Copy, RefreshCw, ExternalLink } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import SettingsLayout from './SettingsLayout';
 
@@ -10,6 +10,8 @@ export default function Drivers() {
   const [showForm, setShowForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState<string | null>(null);
   const [showPins, setShowPins] = useState<Set<string>>(new Set());
+  const [copiedLinks, setCopiedLinks] = useState<Set<string>>(new Set());
+  const [regeneratingTokens, setRegeneratingTokens] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -109,7 +111,53 @@ export default function Drivers() {
 
   const copyDriverId = (license: string) => {
     navigator.clipboard.writeText(license);
-    // You could add a toast notification here
+  };
+
+  const generateDriverLink = (driverAuthToken: string) => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/driver?token=${driverAuthToken}`;
+  };
+
+  const copyDriverLink = async (driverId: string, authToken: string) => {
+    const link = generateDriverLink(authToken);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLinks(prev => new Set([...prev, driverId]));
+      setTimeout(() => {
+        setCopiedLinks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(driverId);
+          return newSet;
+        });
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  const regenerateToken = async (driverId: string) => {
+    setRegeneratingTokens(prev => new Set([...prev, driverId]));
+    
+    try {
+      // Call API to regenerate token
+      const response = await fetch(`/api/driver/regenerate-token/${driverId}`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        // Refresh drivers data to get new token
+        await new Promise(resolve => setTimeout(resolve, 500));
+        window.location.reload(); // Simple refresh to get updated data
+      }
+    } catch (err) {
+      console.error('Failed to regenerate token:', err);
+    } finally {
+      setRegeneratingTokens(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(driverId);
+        return newSet;
+      });
+    }
   };
 
   return (
@@ -233,6 +281,9 @@ export default function Drivers() {
                   Portal PIN
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Direct Access Link
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -284,6 +335,53 @@ export default function Drivers() {
                       </button>
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => copyDriverLink(driver.id, driver.auth_token)}
+                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                          copiedLinks.has(driver.id)
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                        title="Copy direct access link for driver"
+                      >
+                        {copiedLinks.has(driver.id) ? (
+                          <>
+                            <Eye className="w-3 h-3 mr-1 inline" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 mr-1 inline" />
+                            Copy Link
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={() => regenerateToken(driver.id)}
+                        disabled={regeneratingTokens.has(driver.id)}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                        title="Regenerate secure token"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${regeneratingTokens.has(driver.id) ? 'animate-spin' : ''}`} />
+                      </button>
+                      
+                      <a
+                        href={generateDriverLink(driver.auth_token)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 text-blue-400 hover:text-blue-600"
+                        title="Test driver link"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Secure token-based access
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                       ${driver.status === 'available' ? 'bg-green-100 text-green-800' : 
@@ -327,16 +425,29 @@ export default function Drivers() {
           <div className="flex">
             <Key className="w-5 h-5 text-blue-400 mr-2 mt-0.5" />
             <div>
-              <h3 className="text-sm font-medium text-blue-800">Driver Portal Access</h3>
+              <h3 className="text-sm font-medium text-blue-800">Driver Portal Access Methods</h3>
               <div className="mt-2 text-sm text-blue-700">
-                <p className="mb-2">
-                  Drivers can access their assigned trips at: <strong>/driver</strong>
-                </p>
+                <div className="mb-4">
+                  <p className="font-medium mb-2">Method 1: Direct Access Links (Recommended)</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs ml-2">
+                    <li>Each driver gets a unique secure link</li>
+                    <li>No need to remember Driver ID or PIN</li>
+                    <li>Simply click "Copy Link" and send to the driver</li>
+                    <li>Driver bookmarks the link for easy access</li>
+                    <li>Links can be regenerated for security</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <p className="font-medium mb-2">Method 2: Manual Login</p>
+                  <p className="mb-2">
+                    Drivers can also access their trips manually at: <strong>/driver</strong>
+                  </p>
+                </div>
+                
                 <ul className="list-disc list-inside space-y-1 text-xs">
                   <li>Driver ID: Use the license number shown above</li>
                   <li>PIN: 4-6 digit number for secure access</li>
-                  <li>Each driver gets their own isolated view with only their assigned trips</li>
-                  <li>Drivers can view trip details, contact clients, and mark trips as complete</li>
                 </ul>
               </div>
             </div>

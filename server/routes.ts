@@ -7,6 +7,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // put application routes here
   // prefix all routes with /api
 
+  // Driver token-based authentication endpoint
+  app.get('/api/driver/auth/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      // Use service role to find driver by auth token
+      const { data: driverData, error } = await supabaseServer
+        .from('drivers')
+        .select('id, name, phone, license, auth_token')
+        .eq('auth_token', token)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Database error during token authentication:', error);
+        return res.status(500).json({ error: 'Authentication failed' });
+      }
+
+      if (!driverData) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      // Return driver info for successful authentication
+      res.json({
+        success: true,
+        driver: {
+          id: driverData.license,
+          name: driverData.name,
+          uuid: driverData.id,
+          phone: driverData.phone
+        }
+      });
+
+    } catch (err) {
+      console.error('Driver token authentication error:', err);
+      res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
   // Driver authentication endpoint - independent from main dashboard auth
   app.post('/api/driver/login', async (req, res) => {
     try {
@@ -52,6 +95,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Driver authentication error:', err);
       res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  // Regenerate driver token endpoint
+  app.post('/api/driver/regenerate-token/:driverId', async (req, res) => {
+    try {
+      const { driverId } = req.params;
+
+      if (!driverId) {
+        return res.status(400).json({ error: 'Driver ID is required' });
+      }
+
+      // Generate new token using the database function
+      const { data, error } = await supabaseServer
+        .rpc('generate_driver_token', { driver_uuid: driverId });
+
+      if (error) {
+        console.error('Error regenerating driver token:', error);
+        return res.status(500).json({ error: 'Failed to regenerate token' });
+      }
+
+      res.json({ success: true, newToken: data });
+
+    } catch (err) {
+      console.error('Driver token regeneration error:', err);
+      res.status(500).json({ error: 'Failed to regenerate token' });
     }
   });
 
