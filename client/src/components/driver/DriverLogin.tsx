@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Car, Lock, User, AlertCircle } from 'lucide-react';
-import { useData } from '../../contexts/DataContext';
 import { supabase } from '../../lib/supabase';
 
 interface DriverLoginProps {
@@ -12,19 +11,19 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [standAloneDrivers, setStandAloneDrivers] = useState<any[]>([]);
-  const { drivers } = useData();
+  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
 
-  // Fetch drivers independently for driver portal
+  // Fetch drivers independently for driver portal (no user authentication required)
   useEffect(() => {
     const fetchDriversForPortal = async () => {
       try {
         console.log('Fetching drivers for driver portal...');
         
-        // Try to get all drivers from all users (for driver portal access)
+        // Get all drivers regardless of user_id for driver portal access
         const { data, error } = await supabase
           .from('drivers')
-          .select('*');
+          .select('*')
+          .eq('active', true); // Only get active drivers
 
         if (error) {
           console.error('Error fetching drivers for portal:', error);
@@ -37,7 +36,7 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
         }));
 
         console.log('Fetched drivers for portal:', driversWithPin);
-        setStandAloneDrivers(driversWithPin);
+        setAvailableDrivers(driversWithPin);
       } catch (err) {
         console.error('Error in fetchDriversForPortal:', err);
       }
@@ -45,9 +44,6 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
 
     fetchDriversForPortal();
   }, []);
-
-  // Use standalone drivers if context drivers are empty
-  const availableDrivers = drivers.length > 0 ? drivers : standAloneDrivers;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +89,7 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
         onDriverLogin(driverId, driver.name, driver.id);
       } else {
         console.log('Driver login failed - no matching driver found');
-        const availableDriverIds = availableDrivers.map(d => d.license).filter(Boolean);
-        console.log('Available Driver IDs:', availableDriverIds);
-        setError(`Invalid Driver ID or PIN. Available Driver IDs: ${availableDriverIds.length > 0 ? availableDriverIds.join(', ') : 'None'}. Default PIN is 1234.`);
+        setError('Invalid Driver ID or PIN. Please check your credentials and try again.');
       }
     } catch (err) {
       console.error('Driver login error:', err);
@@ -156,13 +150,13 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="password"
-                  value={pin}
+                  Access your assigned trips here using your credentials
                   onChange={(e) => setPin(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter your PIN"
                   autoComplete="current-password"
                   maxLength={6}
-                  required
+                  <li>View trip details, contact information, and manage your schedule</li>
                 />
               </div>
             </div>
