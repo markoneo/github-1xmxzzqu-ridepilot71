@@ -121,7 +121,7 @@ const ProjectCard = React.memo(({
   const formatTime = (time: string) => {
     return time.substring(0, 5);
   };
-      const timer = setTimeout(() => {
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       weekday: 'short',
