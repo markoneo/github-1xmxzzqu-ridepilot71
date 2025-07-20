@@ -290,9 +290,6 @@ export default function Drivers() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -397,14 +394,6 @@ export default function Drivers() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${driver.status === 'available' ? 'bg-green-100 text-green-800' : 
-                        driver.status === 'busy' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-gray-100 text-gray-800'}`}>
-                      {driver.status.charAt(0).toUpperCase() + driver.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
                     <button
                       onClick={() => handleEdit(driver)}
                       className="text-blue-600 hover:text-blue-900 transition-colors"
@@ -420,8 +409,6 @@ export default function Drivers() {
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
-                    <button
                 </tr>
               ))}
             </tbody>
