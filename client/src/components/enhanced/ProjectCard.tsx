@@ -81,7 +81,7 @@ const ProjectCard = React.memo(({
     if (confirmationState === 'confirming') {
       const timer = setTimeout(() => {
         setConfirmationState('idle');
-      }, 5000);
+      }, 8000); // Increased timeout to give users more time
       return () => clearTimeout(timer);
     }
   }, [confirmationState]);
@@ -92,8 +92,8 @@ const ProjectCard = React.memo(({
     
     const currentTime = Date.now();
     
-    // Prevent rapid successive clicks (debounce)
-    if (currentTime - lastClickTime < 300) {
+    // Prevent rapid successive clicks (debounce) - reduced time and only for same state
+    if (currentTime - lastClickTime < 100) {
       return;
     }
     
@@ -121,7 +121,7 @@ const ProjectCard = React.memo(({
   const formatTime = (time: string) => {
     return time.substring(0, 5);
   };
-
+      const timer = setTimeout(() => {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       weekday: 'short',
