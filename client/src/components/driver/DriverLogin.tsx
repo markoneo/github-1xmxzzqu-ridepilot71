@@ -29,7 +29,7 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
       // Direct database query for driver authentication
       const { data: driverData, error: driverError } = await supabase
         .from('drivers')
-        .select('id, name, phone, license')
+        .select('id, name, phone, license, pin')
         .eq('license', driverId.trim())
         .maybeSingle();
 
@@ -40,17 +40,18 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
       }
 
       if (!driverData) {
-        console.error('Driver not found:', driverError);
+        console.error('Driver not found for license:', driverId.trim());
         setError('Invalid Driver ID. Please check your credentials.');
         return;
       }
 
-      // Since PIN column doesn't exist yet, use default PIN '1234' for all drivers
-      if (pin.trim() === '1234') {
+      // Validate PIN against database value (fallback to '1234' if no PIN set)
+      const validPin = driverData.pin || '1234';
+      if (pin.trim() === validPin) {
         console.log('Driver login successful:', driverData);
         onDriverLogin(driverId, driverData.name, driverData.id);
       } else {
-        setError('Invalid PIN. Use default PIN: 1234');
+        setError('Invalid PIN. Please check your credentials.');
       }
     } catch (err) {
       console.error('Driver login error:', err);
