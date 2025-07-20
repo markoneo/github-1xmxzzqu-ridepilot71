@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Car, Lock, User, AlertCircle } from 'lucide-react';
+import { useData } from '../../contexts/DataContext';
+import { supabase } from '../../lib/supabase';
 
 interface DriverLoginProps {
   onDriverLogin: (driverId: string, driverName: string, driverUuid: string) => void;
@@ -10,6 +12,42 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [standAloneDrivers, setStandAloneDrivers] = useState<any[]>([]);
+  const { drivers } = useData();
+
+  // Fetch drivers independently for driver portal
+  useEffect(() => {
+    const fetchDriversForPortal = async () => {
+      try {
+        console.log('Fetching drivers for driver portal...');
+        
+        // Try to get all drivers from all users (for driver portal access)
+        const { data, error } = await supabase
+          .from('drivers')
+          .select('*');
+
+        if (error) {
+          console.error('Error fetching drivers for portal:', error);
+          return;
+        }
+
+        const driversWithPin = (data || []).map(driver => ({
+          ...driver,
+          pin: driver.pin || '1234'
+        }));
+
+        console.log('Fetched drivers for portal:', driversWithPin);
+        setStandAloneDrivers(driversWithPin);
+      } catch (err) {
+        console.error('Error in fetchDriversForPortal:', err);
+      }
+    };
+
+    fetchDriversForPortal();
+  }, []);
+
+  // Use standalone drivers if context drivers are empty
+  const availableDrivers = drivers.length > 0 ? drivers : standAloneDrivers;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,34 +61,42 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
     setError('');
 
     try {
-      console.log('Attempting driver login via API...');
+      console.log('Attempting driver login:', { driverId, pin, driversCount: availableDrivers.length });
+      console.log('Available drivers:', availableDrivers.map(d => ({ id: d.id, name: d.name, license: d.license, pin: d.pin })));
       
-      // Use API endpoint for driver authentication (bypasses RLS)
-      const response = await fetch('/api/driver/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          driverId: driverId.trim(),
-          pin: pin.trim()
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || 'Login failed');
+      // Check if no drivers are loaded
+      if (availableDrivers.length === 0) {
+        setError('No drivers found in the system. Please ensure drivers are added in the admin panel first.');
         return;
       }
+      
+      // Find the driver by license number (Driver ID) - case insensitive
+      const driver = availableDrivers.find(d => {
+        const driverLicense = d.license?.toLowerCase().trim();
+        const inputId = driverId.toLowerCase().trim();
+        const driverPin = d.pin || '1234';
+        
+        console.log('Checking driver:', { 
+          driverLicense, 
+          inputId, 
+          driverPin, 
+          inputPin: pin,
+          licenseMatch: driverLicense === inputId,
+          pinMatch: driverPin === pin
+        });
+        
+        return driverLicense === inputId && driverPin === pin;
+      });
 
-      if (result.success && result.driver) {
-        console.log('Driver login successful:', result.driver);
-        onDriverLogin(result.driver.id, result.driver.name, result.driver.uuid);
+      if (driver) {
+        console.log('Driver login successful:', driver);
+        onDriverLogin(driverId, driver.name, driver.id);
       } else {
-        setError('Invalid credentials');
+        console.log('Driver login failed - no matching driver found');
+        const availableDriverIds = availableDrivers.map(d => d.license).filter(Boolean);
+        console.log('Available Driver IDs:', availableDriverIds);
+        setError(`Invalid Driver ID or PIN. Available Driver IDs: ${availableDriverIds.length > 0 ? availableDriverIds.join(', ') : 'None'}. Default PIN is 1234.`);
       }
-
     } catch (err) {
       console.error('Driver login error:', err);
       setError('Login failed. Please try again.');
@@ -98,7 +144,7 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Use your license number as your Driver ID. Default PIN is 1234.
+                Use your license number as your Driver ID
               </p>
             </div>
 
@@ -137,6 +183,9 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
           <div className="mt-6 pt-6 border-t border-gray-200 text-center">
             <p className="text-sm text-gray-500">
               Having trouble? Contact your dispatcher
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              Demo: Use any license number from the driver list with PIN: 1234
             </p>
           </div>
         </div>
