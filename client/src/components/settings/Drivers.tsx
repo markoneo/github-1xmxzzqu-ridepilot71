@@ -20,6 +20,83 @@ export default function Drivers() {
     pin: '1234', // Default PIN
   });
 
+  const handleEdit = (driver: any) => {
+    setFormData({
+      name: driver.name,
+      phone: driver.phone,
+      license: driver.license,
+      status: driver.status,
+      pin: driver.pin || '1234',
+    });
+    setEditingDriver(driver.id);
+    setShowForm(true);
+  };
+
+  const handleUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (editingDriver) {
+      // Check for duplicate driver ID (license)
+      const duplicateId = drivers.find(driver => 
+        driver.license === formData.license && driver.id !== editingDriver
+      );
+      
+      if (duplicateId) {
+        alert('A driver with this ID already exists. Please use a unique Driver ID.');
+        return;
+      }
+      
+      // Check for duplicate PIN
+      const duplicatePin = drivers.find(driver => 
+        driver.pin === formData.pin && driver.id !== editingDriver
+      );
+      
+      if (duplicatePin) {
+        alert('A driver with this PIN already exists. Please use a unique PIN.');
+        return;
+      }
+      
+      updateDriver(editingDriver, formData);
+      setEditingDriver(null);
+    }
+    setFormData({ name: '', phone: '', license: '', status: 'available', pin: '1234' });
+    setShowForm(false);
+  };
+
+  const handleDeleteDriver = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this driver?')) {
+      deleteDriver(id);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Check for duplicate driver ID (license)
+    const duplicateId = drivers.find(driver => 
+      driver.license === formData.license && driver.id !== editingDriver
+    );
+    
+    if (duplicateId) {
+      alert('A driver with this ID already exists. Please use a unique Driver ID.');
+      return;
+    }
+    
+    // Check for duplicate PIN
+    const duplicatePin = drivers.find(driver => 
+      driver.pin === formData.pin && driver.id !== editingDriver
+    );
+    
+    if (duplicatePin) {
+      alert('A driver with this PIN already exists. Please use a unique PIN.');
+      return;
+    }
+    
+    addDriver(formData);
+    setFormData({ name: '', phone: '', license: '', status: 'available', pin: '1234' });
+    setShowForm(false);
+  };
+
   const togglePinVisibility = (driverId: string) => {
     setShowPins(prev => {
       const newSet = new Set(prev);
@@ -248,7 +325,10 @@ export default function Drivers() {
               <div className="flex justify-end space-x-4">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingDriver(null);
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
