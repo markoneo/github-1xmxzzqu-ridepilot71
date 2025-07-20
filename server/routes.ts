@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { supabase } from "../client/src/lib/supabase";
+import { supabaseServer } from "./lib/supabaseServer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // put application routes here
@@ -17,7 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use service role to bypass RLS for driver authentication
-      const { data: driverData, error } = await supabase
+      const { data: driverData, error } = await supabaseServer
         .from('drivers')
         .select('id, name, phone, license, pin')
         .eq('license', driverId.trim())
@@ -65,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use service role to bypass RLS for driver project access
-      const { data: projects, error } = await supabase
+      const { data: projects, error } = await supabaseServer
         .from('projects')
         .select(`
           id,
