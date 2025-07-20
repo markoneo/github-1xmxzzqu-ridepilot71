@@ -26,49 +26,24 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
     try {
       console.log('Attempting driver login with credentials verification...');
       
-      // Use the server-side authentication function
-      const { data, error } = await supabase.rpc('verify_driver_credentials', {
-        driver_id: driverId.trim(),
-        driver_pin: pin.trim()
-      });
+      // Direct database query for driver authentication
+      const { data: driverData, error: driverError } = await supabase
+        .from('drivers')
+        .select('id, name, phone, license, pin')
+        .eq('license', driverId.trim())
+        .single();
 
-      if (error) {
-        console.error('Driver authentication error:', error);
-        
-        // If the RPC function fails due to missing active column, fall back to direct query
-        if (error.message.includes('active') || error.message.includes('column')) {
-          console.log('Falling back to direct driver query...');
-          
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('drivers')
-            .select('id, name, phone, license, pin')
-            .eq('license', driverId.trim())
-            .single();
-
-          if (fallbackError || !fallbackData) {
-            setError('Invalid Driver ID or PIN. Please check your credentials.');
-            return;
-          }
-
-          const storedPin = fallbackData.pin || '1234';
-          if (storedPin === pin.trim()) {
-            console.log('Fallback driver login successful:', fallbackData);
-            onDriverLogin(driverId, fallbackData.name, fallbackData.id);
-            return;
-          } else {
-            setError('Invalid Driver ID or PIN. Please check your credentials.');
-            return;
-          }
-        } else {
-          setError('Authentication failed. Please try again.');
-          return;
-        }
+      if (driverError || !driverData) {
+        console.error('Driver not found:', driverError);
+        setError('Invalid Driver ID. Please check your credentials.');
+        return;
       }
 
-      if (data && data.length > 0) {
-        const authenticatedDriver = data[0];
-        console.log('Driver login successful:', authenticatedDriver);
-        onDriverLogin(driverId, authenticatedDriver.name, authenticatedDriver.id);
+      // Check PIN - use default '1234' if no PIN is set
+      const storedPin = driverData.pin || '1234';
+      if (storedPin === pin.trim()) {
+        console.log('Driver login successful:', driverData);
+        onDriverLogin(driverId, driverData.name, driverData.id);
       } else {
         setError('Invalid Driver ID or PIN. Please check your credentials.');
       }
