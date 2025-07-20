@@ -194,48 +194,6 @@ export default function Drivers() {
       if (duplicatePin) {
         alert('A driver with this PIN already exists. Please use a unique PIN.');
         return;
-      }
-      
-      updateDriver(editingDriver, formData);
-      setEditingDriver(null);
-    }
-    setFormData({ name: '', phone: '', license: '', status: 'available', pin: '1234' });
-    setShowForm(false);
-  };
-
-  const handleDeleteDriver = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this driver?')) {
-      deleteDriver(id);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Check for duplicate driver ID (license)
-    const duplicateId = drivers.find(driver => 
-      driver.license === formData.license && driver.id !== editingDriver
-    );
-    
-    if (duplicateId) {
-      alert('A driver with this ID already exists. Please use a unique Driver ID.');
-      return;
-    }
-    
-    // Check for duplicate PIN
-    const duplicatePin = drivers.find(driver => 
-      driver.pin === formData.pin && driver.id !== editingDriver
-    );
-    
-    if (duplicatePin) {
-      alert('A driver with this PIN already exists. Please use a unique PIN.');
-      return;
-    }
-    
-    addDriver(formData);
-    setFormData({ name: '', phone: '', license: '', status: 'available', pin: '1234' });
-    setShowForm(false);
-  };
 
   return (
     <SettingsLayout 
