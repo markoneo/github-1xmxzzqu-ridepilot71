@@ -18,7 +18,6 @@ import {
   ChevronUp,
   MessageCircle
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 interface DriverProject {
   id: string;
@@ -59,64 +58,20 @@ export default function DriverDashboard({ driverId, driverName, driverUuid, onLo
       setLoading(true);
       console.log('Fetching projects for driver UUID:', driverUuid);
 
-      // Get projects assigned to this driver
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          id,
-          company_id,
-          client_name,
-          client_phone,
-          pickup_location,
-          dropoff_location,
-          date,
-          time,
-          passengers,
-          price,
-          driver_fee,
-          status,
-          description,
-          booking_id,
-          companies:company_id (
-            name
-          ),
-          car_types:car_type_id (
-            name
-          )
-        `)
-        .eq('driver_id', driverUuid)
-        .eq('status', 'active')
-        .order('date', { ascending: true })
-        .order('time', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching driver projects:', error);
-        setError('Failed to load your assigned trips');
+      // Use API endpoint to fetch driver projects (bypasses RLS)
+      const response = await fetch(`/api/driver/${driverUuid}/projects`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error:', errorData);
+        setError(errorData.error || 'Failed to load your assigned trips');
         return;
       }
 
-      // Transform the data
-      const transformedProjects = (data || []).map(project => ({
-        id: project.id,
-        company_id: project.company_id,
-        company_name: project.companies?.name || 'Unknown Company',
-        client_name: project.client_name,
-        client_phone: project.client_phone,
-        pickup_location: project.pickup_location,
-        dropoff_location: project.dropoff_location,
-        date: project.date,
-        time: project.time,
-        passengers: project.passengers,
-        price: project.price,
-        driver_fee: project.driver_fee,
-        status: project.status,
-        description: project.description || '',
-        booking_id: project.booking_id || '',
-        car_type_name: project.car_types?.name || 'Standard'
-      }));
+      const { projects } = await response.json();
 
-      console.log('Fetched driver projects:', transformedProjects);
-      setProjects(transformedProjects);
+      console.log('Fetched driver projects:', projects);
+      setProjects(projects || []);
       setError(null);
       setLastRefresh(new Date());
     } catch (err) {

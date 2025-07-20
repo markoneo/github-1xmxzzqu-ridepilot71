@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Car, Lock, User, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 interface DriverLoginProps {
   onDriverLogin: (driverId: string, driverName: string, driverUuid: string) => void;
@@ -24,35 +23,34 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
     setError('');
 
     try {
-      console.log('Attempting driver login with credentials verification...');
+      console.log('Attempting driver login via API...');
       
-      // Direct database query for driver authentication
-      const { data: driverData, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, name, phone, license, pin')
-        .eq('license', driverId.trim())
-        .maybeSingle();
+      // Use API endpoint for driver authentication (bypasses RLS)
+      const response = await fetch('/api/driver/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          driverId: driverId.trim(),
+          pin: pin.trim()
+        })
+      });
 
-      if (driverError) {
-        console.error('Database error:', driverError);
-        setError('Database error occurred. Please try again.');
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error || 'Login failed');
         return;
       }
 
-      if (!driverData) {
-        console.error('Driver not found for license:', driverId.trim());
-        setError('Invalid Driver ID. Please check your credentials.');
-        return;
-      }
-
-      // Validate PIN against database value (fallback to '1234' if no PIN set)
-      const validPin = driverData.pin || '1234';
-      if (pin.trim() === validPin) {
-        console.log('Driver login successful:', driverData);
-        onDriverLogin(driverId, driverData.name, driverData.id);
+      if (result.success && result.driver) {
+        console.log('Driver login successful:', result.driver);
+        onDriverLogin(result.driver.id, result.driver.name, result.driver.uuid);
       } else {
-        setError('Invalid PIN. Please check your credentials.');
+        setError('Invalid credentials');
       }
+
     } catch (err) {
       console.error('Driver login error:', err);
       setError('Login failed. Please try again.');
@@ -100,7 +98,7 @@ export default function DriverLogin({ onDriverLogin }: DriverLoginProps) {
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Use your license number as your Driver ID
+                Use your license number as your Driver ID. Default PIN is 1234.
               </p>
             </div>
 
